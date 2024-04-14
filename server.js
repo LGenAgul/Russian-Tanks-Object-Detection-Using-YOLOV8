@@ -1,36 +1,67 @@
-// INCLUDING MODULES
-const express = require('express');
+// // INCLUDING MODULES
+const cors = require('cors');
 const path = require('path');
+const express = require('express');
+const app = express();
+const server = require('http').Server(app);
 const bodyParser = require('body-parser');
 const multer = require('multer');
-const {
-    exec
-} = require('child_process');
+const {exec} = require('child_process');
 const ffmpeg = require('fluent-ffmpeg');
-const {
-    GoogleGenerativeAI
-} = require("@google/generative-ai");
+const {GoogleGenerativeAI} = require("@google/generative-ai");
 const fs = require('fs');
+const io = require('socket.io')(server);
+const { spawn } = require('child_process');
+// const wCap = new cv.VideoCapture(0);
+const mongoose = require('mongoose');
+const resultSchema = require('./js/resultSchema');
+var MongoClient = require('mongodb').MongoClient;
+//constant variables
+const port = 80;
 
 
 require('dotenv').config();
 // using  GEMINI API
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
+const corsOptions = {
+    origin: 'http://127.0.0.1', 
+    optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 
-const app = express();
-const port = 80;
-const server = app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+
+//FUCKING HELLSPAWN
+
+io.on('connection', (socket) => {
+    console.log('A client connected');
+    sendData(socket)
+    socket.on('disconnect', () => {
+      console.log('Client disconnected');
+    });
+  });
+
+//making a database connection
+const uri = 'mongodb://localhost:27017/tankdb';
+mongoose.connect(uri);
+     const db = mongoose.connection;
+     // Bind connection to error event (to get notification of connection errors)
+     db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+     db.once('open', () => {
+         console.log('Connected to MongoDB database');
+         // You can start defining your schemas and models here
+     });
+     const collection = db.collection("results");
+     
 
 app.use(express.static(path.join(__dirname, '/')));
 app.use(bodyParser.urlencoded({
     extended: false
 }));
+app.use(cors(corsOptions));
 
 app.set('views', 'views');
-app.set("view engine", 'hbs')
+app.set("view engine", 'hbs');
+
 
 
 ffmpeg.setFfmpegPath("./bin/ffmpeg.exe");
@@ -43,83 +74,182 @@ const storage = multer.diskStorage({
         cb(null, file.originalname);
     }
 });
-const upload = multer({
-    storage: storage
-});
+const upload = multer({storage: storage});
 
 
 
 
-// #########################################################################
-// this part does the GET request routing
+// // #########################################################################
+// // this part does the GET request routing
 app.get('/', (req, res) => {
     res.render('home');
 });
 
-app.get('/result', (req, res) => {
-    return res.render('result')
+app.get('/result', async (req, res) => {
+    const cursor = collection.find();
+
+    // Convert cursor to array of documents
+    const documents = await cursor.toArray();
+    if (documents.length==0)
+    {
+        return res.send('No documents to show :(');
+    }
+    // Print or process the documents
+    const imageUrls = documents.map(doc => `/outputs/${doc.filename}`);
+    console.log('All documents:', documents);
+     return res.render('results', { imageUrls });
 });
 
-// #########################################################################
-// this part does the POST request routing
-app.post('/', upload.single('file'), async (req, res) => {
-    // ok so this function is pretty complex let me break it down
-    // the form submission has a file upload for a picture or a video.
+
+
+app.get('/video', async (req, res) => {
     try {
-        // we save the path to a variable, and also make a relative path variable
+      // Execute stream.py asynchronously
+      res.sendFile(path.join(__dirname, '/views/stream.html'));
+      await executeStream();
+  
+      // Send the stream.html file after successful execution
+    } catch (error) {
+      console.error('Error starting stream:', error);
+      // Handle errors appropriately (e.g., send an error response to the client)
+      res.status(500).send('Error starting video stream');
+    }
+  }); 
+
+// Start capturing frames from the webcam and emit them to clients
+const fps = 30;
+
+
+// // #########################################################################
+
+// // #########################################################################
+// // this part does the POST request routing
+app.post('/', upload.single('file'), async (req, res) => {
+    try {
         const location = req.file ? req.file.path : null;
         const relativePath = location ? location.replace(/\\/g, '/') : null;
+        var type;
+        var params;
         console.log(relativePath);
 
         // Execute detect.py script asynchronously
-        // Because we have to wait for the file creations to be finished
-        await new Promise((resolve, reject) => {
-            // The command is:  python detect.py <image/video path>    
-            exec(`python detect.py ${relativePath}`, async (error, stdout, stderr) => {
-                console.log("Started detect.py")
-                if (error) {
-                    console.error('Error executing detect.py:', error);
-                    reject(error);
-                } else {
-                    // CHECKING IF THE FILE IS A VIDEO OR AN IMAGE
-                    if (isVideo(relativePath)) 
-                    {
-                        // Proceed with this code if it's a video
-                        await webConvert(relativePath).then(() => {
-                                resolve();
-                                waitForFileToExist(relativePath);
-                                var tank = require('./js/output');
-                                askAI(tank);
-                                return res.send(`<video src="outputs${changeFileExtension(relativePath,"mp4")}" width="640" height="480" controls autoplay></video>
-                                            <br>  
-                                             <p>${tank}</p> `);
-                            }) // Resolve the promise if conversion is successful
-                            .catch(reject); // Reject the promise if there's an error during conversion
-                    } else {
-                          // Proceed with this code if it's a Photo
+        await executeDetection(relativePath);
 
+        let resultData;
+        // Check if the file is a video or an image
+        if (isVideo(relativePath)) {
+            resultData = await processVideo(relativePath, res);
+            type = 'video';
+            params = '  width="640" height="480" controls autoplay'
+        } else {
+            resultData = await processImage(relativePath, res);
+            type = 'img';
+            params = ''
+        }
 
-                        resolve();
-                        waitForFileToExist(relativePath);
-                        var tank = require('./js/output');
-                        await askAI(tank);
-                        return res.send(`<img src="outputs${relativePath}"> 
-                                        <br>  
-                                         <p>${tank}</p> 
-                                         <p>${askAI(tank)}</p> 
-                                        `);
-                    }
-                }
-            });
+        // Save detected data to the database
+        const result = new resultSchema({
+            filename: req.file.filename,
+            path: location,
+            tank: resultData.tank, // Accessing the tank variable from resultData
+            text: resultData.text, // Accessing the text variable from resultData
+            filePath: resultData.filePath // Accessing the filePath variable from resultData
         });
+        await result.save();
 
+        return res.send(`<${type} src="outputs${resultData.filePath}" ${params}></${type}>
+            <br>  
+            <p>${resultData.text}</p>`);
 
     } catch (error) {
         console.error('Error processing image:', error);
-
+        return res.status(500).send('Error processing image');
     }
-
 });
+// #########################################################################
+
+
+async function executeDetection(relativePath) {
+    return new Promise((resolve, reject) => {
+        exec(`python python/detect.py ${relativePath}`, (error, stdout, stderr) => {
+            console.log("Started detect.py");
+            if (error) {
+                console.error('Error executing detect.py:', error);
+                reject(error);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+async function executeStream() {
+    try {
+      console.log("Starting stream.py");
+      // Assuming the child process module is imported (const { spawn } = require('child_process');)
+      const pythonProcess = spawn('python', ['python/stream.py']);
+  
+      // Optional: Handle output from the child process (stream.py)
+      pythonProcess.stdout.on('data', (data) => {
+        // console.log(`python/stream.py output: ${data}`);
+      });
+  
+      pythonProcess.stderr.on('data', (data) => {
+        console.error(`python/stream.py error: ${data}`);
+      });
+  
+      // Wait for the child process to exit (asynchronous)
+      await new Promise((resolve, reject) => {
+        pythonProcess.on('close', (code) => {
+          if (code === 0) {
+            resolve(); // Resolve if process exits successfully
+          } else {
+            reject(new Error(`python/stream.py exited with code ${code}`)); // Reject on error
+          }
+        });
+      });
+  
+      console.log("stream.py completed successfully");
+  
+    } catch (error) {
+      console.error('Error executing stream.py:', error);
+      throw error; // Re-throw the error for handling in the calling code
+    }
+  }
+
+function sendData(socket)
+{
+    socket.on('data', (data) => {
+        io.emit('imageData',data);
+      });
+}
+
+
+async function processVideo(relativePath, res) {
+    await webConvert(relativePath);
+    waitForFileToExist(relativePath);
+    delete require.cache[require.resolve('./js/output')]; // Delete cache entry
+    const tank = require('./js/output');
+    const text = await askAI(tank);
+    return {
+        tank: tank,
+        text: text,
+        filePath: changeFileExtension(relativePath, "mp4")
+    };
+}
+
+async function processImage(relativePath, res) {
+    waitForFileToExist(relativePath);
+    delete require.cache[require.resolve('./js/output')]; // Delete cache entry
+    const tank = require('./js/output');
+    const text = await askAI(tank);
+    return {
+        tank: tank,
+        text: text,
+        filePath: relativePath
+    };
+}
+
 
 
 //miscellaneous functions
@@ -192,6 +322,12 @@ function waitForFileToExist(filePath) {
                 clearInterval(interval);
                 resolve();
             }
-        }, 1000); // Check every second
+        }, 100); // Check every second
     });
 }
+
+
+server.listen(port, () =>
+{
+    console.log(`app listening on port ${port}!`);
+}) //me vgijdebi mariamze 

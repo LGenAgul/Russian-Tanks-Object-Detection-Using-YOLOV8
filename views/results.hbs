@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result</title>
+</head>
+<body>
+    <h1>Result</h1>
+    
+    <h2>Images</h2>
+    <!-- Loop through the imageUrls array and display each image -->
+    {{#each imageUrls}}
+        <img src="{{this}}" alt="Image">
+    {{/each}}
+    
+    <h2>Links</h2>
+    <a href="http://127.0.0.1">Home</a>
+    <a href="/video">Video</a>
+</body>
+</html>

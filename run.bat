@@ -1,2 +1,3 @@
 @echo off
-npm run start
+start "" "C:\Users\user\AppData\Roaming\npm\node_modules\electron\dist\electron.exe" "electron.js"
+npm start
