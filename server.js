@@ -1,4 +1,4 @@
-// // INCLUDING MODULES
+//ბიბლიოთეკები
 const cors = require('cors');
 const path = require('path');
 const express = require('express');
@@ -16,22 +16,20 @@ const exphbs = require('express-handlebars');
 const mongoose = require('mongoose');
 const resultSchema = require('./js/resultSchema');
 var MongoClient = require('mongodb').MongoClient;
-//constant variables
+
+//ვიყენებთ http პორტს
 const port = 80;
-
-
-require('dotenv').config();
-// using  GEMINI API
-const genAI = new GoogleGenerativeAI(process.env.API_KEY);
-
+// ip მისამართის გაწერა
 const corsOptions = {
     origin: 'http://127.0.0.1', 
     optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
+require('dotenv').config();
+// using  GEMINI API
+const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
-//FUCKING HELLexec
-
+//ამით ვიღებთ სტრიმის მონაცემებს
 io.on('connection', (socket) => {
     console.log('A client connected');
     sendData(socket)
@@ -39,8 +37,7 @@ io.on('connection', (socket) => {
       console.log('Client disconnected');
     });
   });
-
-//making a database connection
+//ვუკავშირდებით მონაცემთა ბაზას
 const uri = 'mongodb://localhost:27017/tankdb';
 mongoose.connect(uri);
      const db = mongoose.connection;
@@ -52,26 +49,25 @@ mongoose.connect(uri);
      });
      const collection = db.collection("results");
      
-
+// სტატიკური საქაღალდეს გაწერა და აპლიკაციის პარამეტრების გაწერა
 app.use(express.static(path.join(__dirname, '/')));
 app.use(bodyParser.urlencoded({
     extended: false
 }));
 app.use(cors(corsOptions));
-
 app.engine('hbs', exphbs.engine({
-    extname: 'hbs', // Specify file extension for templates
-    layoutsDir: path.join(__dirname, 'views', 'layouts'), // Path to layouts directory
-    partialsDir: path.join(__dirname, 'views', 'partials'), // Path to partials directory
-    defaultLayout: 'main', // Default layout file
+    extname: 'hbs', 
+    layoutsDir: path.join(__dirname, 'views', 'layouts'), 
+    partialsDir: path.join(__dirname, 'views', 'partials'), 
+    defaultLayout: 'main',
 }));
 app.set('views', 'views');
 app.set("view engine", 'hbs');
 
-
-
+// ffmpeg ფოტოების ენკოდირების აპლიკაციას ვიყენებთ რომ ვიდეოებმა იმუშაონ
 ffmpeg.setFfmpegPath("./bin/ffmpeg.exe");
 
+// ფაილების ასატვირთად
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, '/');
@@ -81,12 +77,8 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({storage: storage});
-
-
-
-
 // // #########################################################################
-// // this part does the GET request routing
+// // get რექვესთები
 app.get('/', (req, res) => {
     res.render('home');
 });
@@ -109,9 +101,6 @@ app.get('/result', async (req, res) => {
     imageUrls.title = "შედეგების გალერეა"
      return res.render('results', { imageUrls });
 });
-
-
-
 app.get('/video', async (req, res) => {
     try {
       // Execute stream.py asynchronously
@@ -125,14 +114,12 @@ app.get('/video', async (req, res) => {
       res.status(500).send('Error starting video stream');
     }
   }); 
-
-// Start capturing frames from the webcam and emit them to clients
+// ვიღებთ სტრიმის თითო frame-ს 
 app.get('/analysis', (req, res) => {
     res.render('analysis');
 });
 // // #########################################################################
-// // #########################################################################
-// // this part does the POST request routing
+// // POST რექვესთები
 app.post('/detect', upload.single('file'), async (req, res) => {
     try {
         const location = req.file ? req.file.path : null;
@@ -157,16 +144,15 @@ app.post('/detect', upload.single('file'), async (req, res) => {
             params = ' width="640" height="480"'
         }
 
-        // Save detected data to the database
+        // ვინახავთ მონაცემთა ბაზაში
         const result = new resultSchema({
             filename: req.file.filename,
             path: location,
-            tank: resultData.tank, // Accessing the tank variable from resultData
-            text: resultData.text, // Accessing the text variable from resultData
-            filePath: resultData.filePath // Accessing the filePath variable from resultData
+            tank: resultData.tank, 
+            text: resultData.text, 
+            filePath: resultData.filePath 
         });
         await result.save();
-
         const element = `<div class="imageContainer">
                          <${type} src="outputs${resultData.filePath}" ${params}></${type}>  
                          </div>
@@ -181,8 +167,6 @@ app.post('/detect', upload.single('file'), async (req, res) => {
     }
 });
 // #########################################################################
-
-
 async function executeDetection(relativePath) {
     return new Promise((resolve, reject) => {
         exec(`python python/detect.py ${relativePath}`, (error, stdout, stderr) => {
@@ -196,29 +180,26 @@ async function executeDetection(relativePath) {
         });
     });
 }
-
 async function executeStream() {
     const {spawn} = require('child_process');
     try {
       console.log("Starting stream.py");
       const pythonProcess = spawn('python', ['python/stream.py']);
   
-      // Optional: Handle output from the child process (stream.py)
+   
       pythonProcess.stdout.on('data', (data) => {
-        // console.log(`python/stream.py output: ${data}`);
+       
       });
   
       pythonProcess.stderr.on('data', (data) => {
         console.error(`python/stream.py error: ${data}`);
       });
-  
-      // Wait for the child process to exit (asynchronous)
       await new Promise((resolve, reject) => {
         pythonProcess.on('close', (code) => {
           if (code === 0) {
-            resolve(); // Resolve if process exits successfully
+            resolve(); 
           } else {
-            reject(new Error(`python/stream.py exited with code ${code}`)); // Reject on error
+            reject(new Error(`python/stream.py exited with code ${code}`)); 
           }
         });
       });
@@ -227,18 +208,15 @@ async function executeStream() {
   
     } catch (error) {
       console.error('Error executing stream.py:', error);
-      throw error; // Re-throw the error for handling in the calling code
+      throw error; 
     }
   }
-
 function sendData(socket)
 {
     socket.on('data', (data) => {
         io.emit('imageData',data);
       });
 }
-
-
 async function processVideo(relativePath, res) {
     await webConvert(relativePath);
     waitForFileToExist(relativePath);
@@ -251,7 +229,6 @@ async function processVideo(relativePath, res) {
         filePath: changeFileExtension(relativePath, "mp4")
     };
 }
-
 async function processImage(relativePath, res) {
     waitForFileToExist(relativePath);
     delete require.cache[require.resolve('./js/output')]; // Delete cache entry
@@ -263,17 +240,11 @@ async function processImage(relativePath, res) {
         filePath: relativePath
     };
 }
-
-
-
-//miscellaneous functions
-
 function changeFileExtension(filePath, newExtension) {
     const extension = path.extname(filePath);
     const basename = path.basename(filePath, extension);
     return path.join(path.dirname(filePath), `${basename}.${newExtension}`);
 }
-
 function webConvert(relativePath) {
     return new Promise((resolve, reject) => {
         ffmpeg(`outputs${relativePath}`)
@@ -296,9 +267,6 @@ function webConvert(relativePath) {
             .run();
     });
 }
-
-
-
 function isVideo(relativePath) {
     const videos = ["mp4", "webm", "avi", "wvm"]
     const photos = ["png", "jpg", "jpeg"]
@@ -312,9 +280,6 @@ function isVideo(relativePath) {
         return false;
     }
 }
-
-
-
 async function askAI(tank) {
     // For text-only input, use the gemini-pro model
     const model = genAI.getGenerativeModel({
@@ -330,7 +295,6 @@ async function askAI(tank) {
     const translatedText = translationResult.text;
     return translatedText;
 }
-
 function waitForFileToExist(filePath) {
     return new Promise((resolve, reject) => {
         const interval = setInterval(() => {
@@ -341,8 +305,6 @@ function waitForFileToExist(filePath) {
         }, 100); // Check every second
     });
 }
-
-
 server.listen(port, () =>
 {
     console.log(`app listening on port ${port}!`);

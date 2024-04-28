@@ -8,11 +8,14 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
+        title: "ობიექტის აღმოჩენა",
+        icon: __dirname + '/icon.ico',
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
             webSecurity:false,
-            autoHideMenuBar: true
+            autoHideMenuBar: true,
+          
         }
     });
 
