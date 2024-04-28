@@ -1,3 +1,4 @@
-opencv-python
-python-socketio
-ultralytics
+base64
+socketio
+ultralytics 
+cv2

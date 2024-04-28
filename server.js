@@ -6,13 +6,13 @@ const app = express();
 const server = require('http').Server(app);
 const bodyParser = require('body-parser');
 const multer = require('multer');
+const  { translate } = require('@vitalets/google-translate-api');
 const {exec} = require('child_process');
 const ffmpeg = require('fluent-ffmpeg');
 const {GoogleGenerativeAI} = require("@google/generative-ai");
 const fs = require('fs');
 const io = require('socket.io')(server);
-const { spawn } = require('child_process');
-// const wCap = new cv.VideoCapture(0);
+const exphbs = require('express-handlebars');
 const mongoose = require('mongoose');
 const resultSchema = require('./js/resultSchema');
 var MongoClient = require('mongodb').MongoClient;
@@ -30,7 +30,7 @@ const corsOptions = {
 };
 
 
-//FUCKING HELLSPAWN
+//FUCKING HELLexec
 
 io.on('connection', (socket) => {
     console.log('A client connected');
@@ -59,6 +59,12 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(cors(corsOptions));
 
+app.engine('hbs', exphbs.engine({
+    extname: 'hbs', // Specify file extension for templates
+    layoutsDir: path.join(__dirname, 'views', 'layouts'), // Path to layouts directory
+    partialsDir: path.join(__dirname, 'views', 'partials'), // Path to partials directory
+    defaultLayout: 'main', // Default layout file
+}));
 app.set('views', 'views');
 app.set("view engine", 'hbs');
 
@@ -85,6 +91,10 @@ app.get('/', (req, res) => {
     res.render('home');
 });
 
+app.get('/detect', (req, res) => {
+    res.render('detect',{title:"აღმოჩენა სტრიმიდან"});
+});
+
 app.get('/result', async (req, res) => {
     const cursor = collection.find();
 
@@ -96,7 +106,7 @@ app.get('/result', async (req, res) => {
     }
     // Print or process the documents
     const imageUrls = documents.map(doc => `/outputs/${doc.filename}`);
-    console.log('All documents:', documents);
+    imageUrls.title = "შედეგების გალერეა"
      return res.render('results', { imageUrls });
 });
 
@@ -117,17 +127,17 @@ app.get('/video', async (req, res) => {
   }); 
 
 // Start capturing frames from the webcam and emit them to clients
-const fps = 30;
-
-
+app.get('/analysis', (req, res) => {
+    res.render('analysis');
+});
 // // #########################################################################
-
 // // #########################################################################
 // // this part does the POST request routing
-app.post('/', upload.single('file'), async (req, res) => {
+app.post('/detect', upload.single('file'), async (req, res) => {
     try {
         const location = req.file ? req.file.path : null;
         const relativePath = location ? location.replace(/\\/g, '/') : null;
+       
         var type;
         var params;
         console.log(relativePath);
@@ -144,7 +154,7 @@ app.post('/', upload.single('file'), async (req, res) => {
         } else {
             resultData = await processImage(relativePath, res);
             type = 'img';
-            params = ''
+            params = ' width="640" height="480"'
         }
 
         // Save detected data to the database
@@ -157,13 +167,17 @@ app.post('/', upload.single('file'), async (req, res) => {
         });
         await result.save();
 
-        return res.send(`<${type} src="outputs${resultData.filePath}" ${params}></${type}>
-            <br>  
-            <p>${resultData.text}</p>`);
-
+        const element = `<div class="imageContainer">
+                         <${type} src="outputs${resultData.filePath}" ${params}></${type}>  
+                         </div>
+                         <div class="infoContainer">
+                         <p>${resultData.text}</p>
+                         </div>`;
+        return  res.render('detect', { element: element, errorHeader: ''});
     } catch (error) {
+        const errorHeader = "<h3>გთხოვთ აირჩიეთ ფოტოსურათი ან ვიდეო </h3>"
         console.error('Error processing image:', error);
-        return res.status(500).send('Error processing image');
+        return res.render('detect', { element: "",errorHeader: errorHeader });
     }
 });
 // #########################################################################
@@ -184,9 +198,9 @@ async function executeDetection(relativePath) {
 }
 
 async function executeStream() {
+    const {spawn} = require('child_process');
     try {
       console.log("Starting stream.py");
-      // Assuming the child process module is imported (const { spawn } = require('child_process');)
       const pythonProcess = spawn('python', ['python/stream.py']);
   
       // Optional: Handle output from the child process (stream.py)
@@ -307,12 +321,14 @@ async function askAI(tank) {
         model: "gemini-pro"
     });
 
-    const prompt = `Tell me about the weaknesses of the ${tank} tank`;
+    const prompt = `list the vulnerabilites of  ${tank} tank  give me a numbered list and before every number add an html break tag`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
-    return text;
+    var text = response.text();
+    const translationResult = await translate(text, { to: 'ka' });
+    const translatedText = translationResult.text;
+    return translatedText;
 }
 
 function waitForFileToExist(filePath) {

@@ -6,21 +6,19 @@ let mainWindow;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 1280,
+        height: 720,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            webSecurity:false
+            webSecurity:false,
+            autoHideMenuBar: true
         }
     });
 
     // Load your Node.js server URL
     mainWindow.loadURL('http://localhost:80');
-
-    // Open DevTools
-    mainWindow.webContents.openDevTools();
-
+    mainWindow.setMenuBarVisibility(false)
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
