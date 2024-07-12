@@ -1,4 +1,5 @@
 {{#> views/layouts/main}}
+<link rel="stylesheet" href="/assets/css/detect.css">
 <main class="container-fluid main">
     {{{errorHeader}}}
     <form action="/detect" method="post" enctype="multipart/form-data" id="upload-form">
@@ -21,10 +22,9 @@
     <img src="/assets/icons/loading.gif" alt="" width="50px" height="50px"  style="display: none;" id="loading">
 </main>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-const $ = require('jquery');
 
+<script>
+var $ = require('jquery');
 $(document).ready(function() {
   $('#file').change(function() {
     // Get the name of the selected file
@@ -44,5 +44,18 @@ $('#submit-button').click(() =>
 });
 
 </script>
-
+     {{!-- button color --}}
+    <script>
+function changeActive() {
+    // Remove "active" class from all elements with the class "active"
+    var activeElements = document.getElementsByClassName("active");
+    for (var i = 0; i < activeElements.length; i++) {
+        activeElements[i].classList.remove("active");
+    }
+    // Add "active" class to the element with the ID "home"
+    var imageElement = document.getElementById("image");
+    imageElement.classList.add("active");
+}
+window.onload = changeActive;
+    </script>
 {{/views/layouts/main}}

@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow,ipcMain } = require('electron');
 const path = require('path');
 const url = require('url');
 
@@ -7,7 +7,7 @@ let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
-        height: 720,
+        height: 1000,
         title: "ობიექტის აღმოჩენა",
         icon: __dirname + '/icon.ico',
         webPreferences: {
@@ -40,3 +40,7 @@ app.on('activate', () => {
         createWindow();
     }
 });
+
+ipcMain.on('close', () => {
+    app.quit()
+  })

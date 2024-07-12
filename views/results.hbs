@@ -1,12 +1,27 @@
 {{#> views/layouts/main}}
+<link rel="stylesheet" href="/assets/css/result.css">
   <main class="container-fluid main">
     <div class="row">
       <!-- Loop through the imageUrls array and display each image -->
-        <div class="gallery">
+        <div class="gallery container">
       {{#each imageUrls}}
           <img src="{{this}}" class="img-fluid wide" width="800" height="600" alt="Image">
       {{/each}}
         </div>
     </div>
   </main>
+       {{!-- button color --}}
+    <script>
+function changeActive() {
+    // Remove "active" class from all elements with the class "active"
+    var activeElements = document.getElementsByClassName("active");
+    for (var i = 0; i < activeElements.length; i++) {
+        activeElements[i].classList.remove("active");
+    }
+    // Add "active" class to the element with the ID "results"
+    var resultsElement = document.getElementById("results");
+    resultsElement.classList.add("active");
+}
+window.onload = changeActive;
+    </script>
 {{/views/layouts/main}}

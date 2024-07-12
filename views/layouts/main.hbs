@@ -26,46 +26,46 @@
                 </div>
 
                 <ul class="nav__list">
-                    <a href="/" class="nav__link active">
+                    <a href="/" class="nav__link" id="home">
                         <i class="fa-solid fa-house nav__icon"></i>
                         <span class="nav__text">მთავარი</span>
                     </a>
-                    <a href="/detect" class="nav__link">
+                    <a href="/detect" class="nav__link" id="image">
                         <i class="fa-solid fa-photo-film nav__icon"></i>
                         <span class="nav__text">აღმოჩენა მედიიდან</span>
                     </a>
-                    <a href="/video" class="nav__link">
+                    <a href="/video" class="nav__link" id="stream">
                         <i class="fa-solid fa-video nav__icon"></i>
                         <span class="nav__text">აღმოჩენა სტრიმიდან</span>
                     </a>
-                    <a href="/result" class="nav__link">
+                    <a href="/result" class="nav__link" id="results">
                         <i class="fa-solid fa-layer-group nav__icon"></i>
                         <span class="nav__text">შედეგები</span>
                     </a>
-                    <a href="/analysis" class="nav__link">
+                    <a href="/analysis" class="nav__link" id="analysis">
                         <i class="fa-solid fa-chart-line nav__icon"></i>
                         <span class="nav__text">ინფორმაცია</span>
                     </a>
-                    <a href="#" class="nav__link">
+                    <a href="/info" class="nav__link" id="info">
                         <i class="fa-solid fa-address-card nav__icon"></i>
                         <span class="nav__text">შესახებ</span>
                     </a>
 
                 </ul>
             </div>
-
-
-            <a href="#" class="nav__link">           
+           <button class="closeButton" id="closeBtn">      
                 <i class="fa-solid fa-circle-xmark nav__icon"></i>
                 <span class="nav__text">Close</span>
-            </a>
+            </button>   
         </nav>
     </div>
    <!--  -->
     {{{body}}}
 
     <!-- MAIN JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
     <script src="assets/js/main.js" type="application/javascript"></script>
+   
 </body>
 </html>

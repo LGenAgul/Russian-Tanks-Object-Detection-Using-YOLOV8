@@ -16,6 +16,7 @@ const exphbs = require('express-handlebars');
 const mongoose = require('mongoose');
 const resultSchema = require('./js/resultSchema');
 var MongoClient = require('mongodb').MongoClient;
+const ipc = require('electron').ipcRenderer
 
 //ვიყენებთ http პორტს
 const port = 80;
@@ -70,7 +71,7 @@ ffmpeg.setFfmpegPath("./bin/ffmpeg.exe");
 // ფაილების ასატვირთად
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, '/');
+        cb(null, 'outputs/');
     },
     filename: function (req, file, cb) {
         cb(null, file.originalname);
@@ -79,9 +80,21 @@ const storage = multer.diskStorage({
 const upload = multer({storage: storage});
 // // #########################################################################
 // // get რექვესთები
-app.get('/', (req, res) => {
-    res.render('home');
+app.get('/', async (req, res) => {
+    const cursor = collection.find();
+    const tanks = [];
+    // Convert cursor to array of documents
+    const documents = await cursor.toArray();
+    if (documents.length == 0) {
+        console.log('No documents to show :(');
+    } else {
+        documents.forEach(doc => {
+            tanks.push(doc.tank);
+        });
+    }
+    res.render('home', { tanks: tanks });
 });
+
 
 app.get('/detect', (req, res) => {
     res.render('detect',{title:"აღმოჩენა სტრიმიდან"});
@@ -118,54 +131,61 @@ app.get('/video', async (req, res) => {
 app.get('/analysis', (req, res) => {
     res.render('analysis');
 });
+//პროეკტის შესახებ გვერდი
+app.get('/info',(req,res)=>
+{
+res.render('info');
+});
 // // #########################################################################
 // // POST რექვესთები
 app.post('/detect', upload.single('file'), async (req, res) => {
     try {
-        const location = req.file ? req.file.path : null;
-        const relativePath = location ? location.replace(/\\/g, '/') : null;
-       
-        var type;
-        var params;
-        console.log(relativePath);
-
-        // Execute detect.py script asynchronously
-        await executeDetection(relativePath);
-
-        let resultData;
-        // Check if the file is a video or an image
-        if (isVideo(relativePath)) {
-            resultData = await processVideo(relativePath, res);
-            type = 'video';
-            params = '  width="640" height="480" controls autoplay'
-        } else {
-            resultData = await processImage(relativePath, res);
-            type = 'img';
-            params = ' width="640" height="480"'
-        }
-
-        // ვინახავთ მონაცემთა ბაზაში
-        const result = new resultSchema({
-            filename: req.file.filename,
-            path: location,
-            tank: resultData.tank, 
-            text: resultData.text, 
-            filePath: resultData.filePath 
-        });
-        await result.save();
-        const element = `<div class="imageContainer">
-                         <${type} src="outputs${resultData.filePath}" ${params}></${type}>  
-                         </div>
-                         <div class="infoContainer">
-                         <p>${resultData.text}</p>
-                         </div>`;
-        return  res.render('detect', { element: element, errorHeader: ''});
+      const location = req.file ? req.file.path : null;
+      const relativePath = location ? location.replace(/\\/g, '/') : null;
+  
+      let type;
+      let params;
+      console.log(relativePath);
+  
+      // Execute detect.py script asynchronously and wait for it to finish
+      await executeDetection(relativePath);
+  
+      let resultData;
+      if (isVideo(relativePath)) {
+        resultData = await processVideo(relativePath, res);
+        type = 'video';
+        params = '  width="640" height="480" controls autoplay';
+      } else {
+        resultData = await processImage(relativePath, res);
+        type = 'img';
+        params = ' width="640" height="480"';
+      }
+  
+      // Save the result to the database
+      const result = new resultSchema({
+        filename: req.file.filename,
+        path: location,
+        tank: resultData.tank,
+        text: resultData.text,
+        filePath: resultData.filePath
+      });
+      await result.save();
+  
+      const element = `<div class="imageContainer">
+                        <${type} src="/${resultData.filePath}" ${params}></${type}>  
+                        </div>
+                        <div class="infoContainer">
+                        <h3>${resultData.tank}</h3>
+                        <p>${resultData.text}</p>
+                        </div>`;
+      res.render('detect', { element: element, errorHeader: '' });
     } catch (error) {
-        const errorHeader = "<h3>გთხოვთ აირჩიეთ ფოტოსურათი ან ვიდეო </h3>"
-        console.error('Error processing image:', error);
-        return res.render('detect', { element: "",errorHeader: errorHeader });
+      const errorHeader = "<h3>გთხოვთ აირჩიეთ ფოტოსურათი ან ვიდეო </h3>";
+      console.error('Error processing image:', error);
+      res.render('detect', { element: "", errorHeader: errorHeader });
     }
-});
+  });
+  
 // #########################################################################
 async function executeDetection(relativePath) {
     return new Promise((resolve, reject) => {
@@ -247,9 +267,9 @@ function changeFileExtension(filePath, newExtension) {
 }
 function webConvert(relativePath) {
     return new Promise((resolve, reject) => {
-        ffmpeg(`outputs${relativePath}`)
+        ffmpeg(`${relativePath}`)
             .videoCodec('libx264')
-            .output(changeFileExtension(`outputs${relativePath}`, 'mp4'))
+            .output(changeFileExtension(`${relativePath}`, 'mp4'))
             .on('end', () => {
                 console.log('Conversion to MP4 complete');
                 resolve(); // Resolve the promise when conversion is complete
@@ -309,3 +329,24 @@ server.listen(port, () =>
 {
     console.log(`app listening on port ${port}!`);
 }) //me vgijdebi mariamze 
+
+
+function mostFrequent(arr) {
+    // Count occurrences of each element
+    const frequencyMap = {};
+    arr.forEach(element => {
+        frequencyMap[element] = (frequencyMap[element] || 0) + 1;
+    });
+
+    // Find the element with the highest frequency
+    let mostFrequentElement;
+    let highestFrequency = 0;
+    for (const element in frequencyMap) {
+        if (frequencyMap[element] > highestFrequency) {
+            mostFrequentElement = element;
+            highestFrequency = frequencyMap[element];
+        }
+    }
+
+    return mostFrequentElement;
+}
