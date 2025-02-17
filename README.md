@@ -22,7 +22,7 @@ This is a web application for object detection, specifically designed for detect
   - MongoDB for storing detection results
   
 - Object Detection:
-  - Custom Python scripts using TensorFlow for object detection
+  - Custom Python scripts using PyTorch for object detection
   - Google Generative AI for generating tank-related content
   
 ## Getting Started
