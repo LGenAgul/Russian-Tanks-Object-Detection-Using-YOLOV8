@@ -46,10 +46,5 @@ Contributions are welcome! If you'd like to contribute to this project, please f
 4. Push to the branch (`git push origin feature/<feature-name>`).
 5. Create a new pull request.
 
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-
 Download the weights here:
 https://drive.google.com/file/d/1XYfzttS9SoayM9GVGCf1DaZ-BdPC5L8j/view?usp=sharing
